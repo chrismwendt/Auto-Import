@@ -2,20 +2,46 @@ import { PathHelper } from './helpers/path-helper';
 import * as vscode from 'vscode';
 
 import { ImportDb, ImportObject } from './import-db';
+import * as request from 'request-promise-native';
+import * as cheerio from 'cheerio';
+import * as LRU from 'lru-cache';
 
 export interface Context {
     document: vscode.TextDocument;
     range: vscode.Range;
     context: vscode.CodeActionContext;
     token: vscode.CancellationToken;
-    imports?: Array<ImportObject>
+    missingVariable?: string
 }
 
-export class ImportAction {
+const askHoogle = variable => {
+    return request({
+        url: `https://hoogle.haskell.org/?hoogle=${variable}&scope=set%3Astackage&mode=json`,
+        json: true
+    });
+};
 
+const withCache = (cache, f) => a => {
+    if (cache.has(a)) {
+        return cache.get(a);
+    } else {
+        const b = f(a);
+        cache.set(a, b);
+        return b;
+    }
+}
+
+const cache = LRU({
+    // 1 MB
+    max: 1000 * 1000,
+    length: r => JSON.stringify(r).length
+});
+
+export class ImportAction {
+    private askHoogleCached = withCache(cache, askHoogle);
 
     public provideCodeActions(document: vscode.TextDocument, range: vscode.Range,
-        context: vscode.CodeActionContext, token: vscode.CancellationToken): vscode.Command[] {
+        context: vscode.CodeActionContext, token: vscode.CancellationToken): Promise<vscode.Command[]> {
 
         let actionContext = this.createContext(document, range, context, token);
 
@@ -25,56 +51,40 @@ export class ImportAction {
     }
 
     private canHandleAction(context: Context): boolean {
-
         let diagnostic: vscode.Diagnostic = context.context.diagnostics[0];
 
         if (!diagnostic) {
             return false;
         }
 
-        if (diagnostic.message.startsWith('Typescript Cannot find name') || diagnostic.message.startsWith('Cannot find name')) {
-            let imp = diagnostic.message.replace('Typescript Cannot find name', '')
-                .replace('Cannot find name', '')
-                .replace(/{|}|from|import|'|"| |\.|;/gi, '')
-
-            try {
-
-                let found = ImportDb.getImport(imp, context.document.uri);
-
-                if (found) {
-                    context.imports = found;
-                    return true
-                }
-
-            } catch (exception) {
-                return false;
-            }
+        if (diagnostic.message.includes('not in scope')) {
+            context.missingVariable = /not in scope: ([^\s]*)/.exec(diagnostic.message)[1];
+            return true;
         }
 
         return false;
     }
 
-    private actionHandler(context: Context): vscode.Command[] {
-        let path = (imp: ImportObject) => {
-            if ((<any>imp.file).discovered) {
-                return imp.file.fsPath;
-            } else {
-                let rp = PathHelper.normalisePath(
-                    PathHelper.getRelativePath(context.document.uri.fsPath, imp.file.fsPath));
-                return rp;
+    private async actionHandler(context: Context): Promise<vscode.Command[]> {
+        try {
+            const resp = await this.askHoogleCached(context.missingVariable);
+            if (resp.length === 0) {
+                console.log("No Hoogle results for", context.missingVariable);
             }
-        };
-
-        let handlers = [];
-        context.imports.forEach(i => {
-            handlers.push({
-                title: `[AI] Import ${i.name} from ${path(i)}`,
+            const candidates = resp
+                .filter(i => i.module.name)
+                .filter(i => cheerio.load(i.item, { xml: {} })('span 0').text() === context.missingVariable)
+                .map(i => ({ mod: i.module.name, package: i.package.name }));
+            let handlers = candidates.map(c => ({
+                title: `Import ${c.package}:${c.mod}`,
                 command: 'extension.fixImport',
-                arguments: [context.document, context.range, context.context, context.token, context.imports]
-            });
-        });
+                arguments: [context.document, context.range, context.context, context.token, context.missingVariable, c]
+            }));
 
-        return handlers;
+            return handlers;
+        } catch (e) {
+            console.log(e);
+        }
     }
 
     private createContext(document: vscode.TextDocument, range: vscode.Range,

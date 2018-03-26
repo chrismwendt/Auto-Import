@@ -6,6 +6,15 @@ Automatically finds, parses and provides code actions and code completion for al
 
 ----
 
+Haskell:
+
+- Looks up variable on Hoogle (requests are cached, and the cache size is 1 MB)
+- Hacked together in a day, lots of room for improvement (handling explicit and qualified imports, add package to `.cabal`, etc.)
+
+![](haskell.gif)
+
+TypeScript:
+
 <img src="https://gifyu.com/images/autoimport.gif">
 
 ----

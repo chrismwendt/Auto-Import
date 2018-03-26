@@ -23,7 +23,8 @@
     ],
     "activationEvents": [
         "onLanguage:typescript",
-        "onLanguage:typescriptreact"
+        "onLanguage:typescriptreact",
+        "onLanguage:haskell"
     ],
     "main": "./out/src/extension",
     "contributes": {
@@ -84,6 +85,10 @@
         "@types/node": "^6.0.40"
     },
     "dependencies": {
-        "lodash": "^4.13.1"
+        "cheerio": "^1.0.0-rc.2",
+        "lodash": "^4.13.1",
+        "lru-cache": "^4.1.2",
+        "request": "^2.85.0",
+        "request-promise-native": "^1.0.5"
     }
 }

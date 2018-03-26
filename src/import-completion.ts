@@ -10,7 +10,7 @@ export class ImportCompletion implements vscode.CompletionItemProvider {
 
     constructor(private context: vscode.ExtensionContext, private enabled: boolean) {
         let fixer = vscode.commands.registerCommand('extension.resolveImport', (args) => {
-            new ImportFixer().fix(args.document, undefined, undefined, undefined, [args.imp]);
+            // new ImportFixer().fix(args.document, undefined, undefined, undefined, [args.imp]);
         });
 
         context.subscriptions.push(fixer);

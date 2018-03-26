@@ -27,6 +27,7 @@ export class AutoImport {
     public attachCommands(): void {
 
         let codeActionFixer = vscode.languages.registerCodeActionsProvider('typescript', new ImportAction())
+        let codeActionFixerHS = vscode.languages.registerCodeActionsProvider('haskell', new ImportAction())
 
         let importScanner = vscode.commands.registerCommand('extension.importScan', (request: any) => {
 
@@ -46,11 +47,9 @@ export class AutoImport {
             new NodeUpload(vscode.workspace.getConfiguration('autoimport')).scanNodeModules();
         });
 
-        let importFixer = vscode.commands.registerCommand('extension.fixImport', (d, r, c, t, i) => {
-            new ImportFixer().fix(d, r, c, t, i);
+        let importFixer = vscode.commands.registerCommand('extension.fixImport', (d, r, c, t, i, m) => {
+            new ImportFixer().fix(d, r, c, t, i, m);
         });
-
-        let completetion = vscode.languages.registerCompletionItemProvider('typescript', new ImportCompletion(this.context, vscode.workspace.getConfiguration('autoimport').get<boolean>('autoComplete')), '');
 
         AutoImport.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
 
@@ -58,7 +57,7 @@ export class AutoImport {
 
         AutoImport.statusBar.show();
 
-        this.context.subscriptions.push(importScanner, importFixer, nodeScanner, codeActionFixer, AutoImport.statusBar, completetion);
+        this.context.subscriptions.push(importScanner, importFixer, nodeScanner, codeActionFixerHS, AutoImport.statusBar);
     }
 
     public attachFileWatcher(): void {
