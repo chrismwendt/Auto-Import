@@ -58,7 +58,8 @@ export class ImportAction {
         }
 
         if (diagnostic.message.includes('not in scope')) {
-            context.missingVariable = /not in scope: ([^\s]*)/.exec(diagnostic.message)[1];
+            const match = /not in scope:\s*(([^()\s]+)|\(([^\s]*)\))/.exec(diagnostic.message);
+            context.missingVariable = match[2] || match[3];
             return true;
         }
 
