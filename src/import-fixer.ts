@@ -59,14 +59,29 @@ export class ImportFixer {
             }
         };
 
-        // Dangerously brittle code follows.
-        // - Assumes you're editing a file under a directory listed in the second stanza (executable)
-        // - Assumes the build-depends property appears just before default-language
-        // - Assumes the comma appears before the package name
-        // This would be much more flexible if it actually parsed the cabal file.
         if (!cabal.getText().split('\n').some(line => line.includes(c.package))) {
-            const insertionLine = findIndexes(cabal.getText().split('\n'), line => /default-language/.test(line))[1];
-            edit.insert(cabal.uri, new vscode.Position(insertionLine, 0), '    , ' + c.package + '\n');
+            const lines = cabal.getText().split('\n');
+            const buildDependsIndexes = findIndexes(lines, line => /^\s*build-depends\s*:/i.test(line));
+            if (buildDependsIndexes.length > 0) {
+                const bdLine = buildDependsIndexes[buildDependsIndexes.length - 1];
+                const nextLine = bdLine + 1 < lines.length ? lines[bdLine + 1] : '';
+                if (/^\s+,/.test(nextLine)) {
+                    // Multi-line leading-comma format:
+                    //   Build-depends:       base >= 4.12
+                    //                      , resourcet >= 1.2
+                    // Match indentation of existing continuation lines.
+                    const prefix = nextLine.match(/^(\s+,\s*)/)[1];
+                    let insertionLine = bdLine + 1;
+                    while (insertionLine < lines.length && /^\s+,/.test(lines[insertionLine])) {
+                        insertionLine++;
+                    }
+                    edit.insert(cabal.uri, new vscode.Position(insertionLine, 0), prefix + c.package + '\n');
+                } else {
+                    // Inline format: build-depends: a, b, c
+                    const lineLen = lines[bdLine].length;
+                    edit.insert(cabal.uri, new vscode.Position(bdLine, lineLen), ', ' + c.package);
+                }
+            }
         }
 
         return edit;
