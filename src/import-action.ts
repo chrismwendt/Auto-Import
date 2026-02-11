@@ -74,7 +74,7 @@ export class ImportAction {
             }
             const candidates = resp
                 .filter(i => i.module.name)
-                .filter(i => cheerio.load(i.item, { xml: {} })('span 0').text() === context.missingVariable)
+                .filter(i => cheerio.load(i.item, { xml: {} })('s0').text() === context.missingVariable)
                 .map(i => ({ mod: i.module.name, package: i.package.name }));
             let handlers = candidates.map(c => ({
                 title: `Import ${c.package}:${c.mod}`,
